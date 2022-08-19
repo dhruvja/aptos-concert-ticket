@@ -1,6 +1,6 @@
 [package]
 name = "tutorials"
-version = "0.2.5"
+version = "0.0.1"
 
 [addresses]
 AptosFramework = "0x1"
