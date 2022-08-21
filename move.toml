@@ -5,6 +5,7 @@ version = "0.0.1"
 [addresses]
 AptosFramework = "0x1"
 ConcertTicket = "B0DB254C80D3E747FF9CFC0D68878C27C0365EBEC49834E92E27CD398327999E"
+CoreResources = "0xA550C18"
 
 [dependencies]
 AptosFramework = { git = "https://github.com/aptos-labs/aptos-core.git", subdir = "aptos-move/framework/aptos-framework/", rev="devnet"}

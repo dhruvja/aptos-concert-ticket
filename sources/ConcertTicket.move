@@ -2,15 +2,17 @@ module ConcertTicket::Tickets {
 
     use std::signer;
     use std::vector;
-    use std::string;
+    // use std::string;
     use aptos_framework::coin;
+    use aptos_framework::aptos_coin;
 
     const E_NO_VENUE: u64 = 0;
-    const E_NO_TICKET: u64 = 0;
+    const E_NO_TICKET: u64 = 1;
     const E_MAX_TICKETS: u64 = 2;
     const E_INVALID_TICKET_CODE: u64 = 3;
     const E_INVALID_TICKET_PRICE: u64 = 4;
-    const E_INVALID_TICKET_STATUS: u64 = 4;
+    const E_INVALID_TICKET_STATUS: u64 = 5;
+    const E_INVALID_BALANCE: u64 = 6;
 
     struct Ticket has key, store, drop {
         seat: vector<u8>,
@@ -33,6 +35,8 @@ module ConcertTicket::Tickets {
     struct TicketEnvelope has key {
         tickets: vector<Ticket>
     } 
+
+    struct TestMoney has key, drop {}
 
 
     public fun create_venue(venue_owner: &signer, max_tickets: u64) {
@@ -79,7 +83,7 @@ module ConcertTicket::Tickets {
         let ticket_info = get_ticket_info(venue_owner, seat);
 
         let venue = borrow_global_mut<Venue>(venue_owner);
-        // TestCoin::transfer_internal(
+        coin::transfer<aptos_coin::AptosCoin>(buyer, venue_owner, ticket_info.price);
         let ticket = vector::remove<Ticket>(&mut venue.available_tickets, ticket_info.index);
         if (!exists<TicketEnvelope>(buyer_addr)) {
             move_to<TicketEnvelope>(buyer, TicketEnvelope{tickets: vector::empty<Ticket>()})
@@ -88,18 +92,15 @@ module ConcertTicket::Tickets {
         vector::push_back<Ticket>(&mut ticket_envelope.tickets, ticket);
     }
 
-    #[test(venue_owner = @0x1)]
-    public entry fun sender_can_create_venue(venue_owner: signer) {
-        create_venue(&venue_owner, 100);
-        let venue_owner_addr = signer::address_of(&venue_owner);
-        assert!(exists<Venue>(venue_owner_addr), E_NO_VENUE);
+    #[test_only]
+    struct TestMoneyCapabilities has key {
+        mint_cap: coin::MintCapability<aptos_coin::AptosCoin>,
+        burn_cap: coin::BurnCapability<aptos_coin::AptosCoin>,
     }
 
-    #[test_only]
-    struct FakeMoney has drop { }
-
-    #[test(recipient = @0x1)]
-    public entry fun sender_can_create_ticket(recipient: signer) acquires Venue {
+    #[test(recipient = @0x1, buyer = @0x2, faucet = @CoreResources)]
+    public entry fun sender_can_create_ticket(recipient: signer, faucet: signer, buyer: signer) acquires Venue, TicketEnvelope {
+        // use aptos_framework::aptos_coin::{Self, AptosCoin};
         create_venue(&recipient, 100); 
         create_ticket(&recipient, b"A24", b"A24001", 100);
         create_ticket(&recipient, b"A25", b"A25001", 500);
@@ -111,6 +112,23 @@ module ConcertTicket::Tickets {
         assert!(ticket_info.price == 100, E_INVALID_TICKET_PRICE);
         assert!(ticket_info.status, E_INVALID_TICKET_STATUS);
         assert!(ticket_count == 3, E_NO_TICKET);
-        // coin::initialize<FakeMoney>(&recipient, string::utf8(b"Fake money"), string::utf8(b"FM"), 6, true);
+        let faucet_addr = signer::address_of(&faucet);
+        let buyer_addr = signer::address_of(&buyer);
+        let (mint_cap, burn_cap) = aptos_coin::initialize(&recipient, &faucet);
+        move_to(&faucet, TestMoneyCapabilities {
+            mint_cap,
+            burn_cap
+        });
+        assert!(coin::balance<aptos_coin::AptosCoin>(faucet_addr) == 18446744073709551615, E_INVALID_BALANCE);
+        coin::register_for_test<aptos_coin::AptosCoin>(&recipient);
+        coin::register_for_test<aptos_coin::AptosCoin>(&buyer);
+        assert!(coin::balance<aptos_coin::AptosCoin>(recipient_addr) == 0, E_INVALID_BALANCE);
+        assert!(coin::balance<aptos_coin::AptosCoin>(buyer_addr) == 0, E_INVALID_BALANCE);
+        coin::transfer<aptos_coin::AptosCoin>(&faucet, buyer_addr, 1000);
+        assert!(coin::balance<aptos_coin::AptosCoin>(buyer_addr) == 1000, E_INVALID_BALANCE);
+        purchase_ticket(&buyer, recipient_addr, b"A24");
+        assert!(coin::balance<aptos_coin::AptosCoin>(buyer_addr) == 900, E_INVALID_BALANCE);
+        assert!(coin::balance<aptos_coin::AptosCoin>(recipient_addr) == 100, E_INVALID_BALANCE);
+        
     }
 }
