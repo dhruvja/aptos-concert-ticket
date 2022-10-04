@@ -3,8 +3,7 @@ name = "tutorials"
 version = "0.0.1"
 
 [addresses]
-AptosFramework = "0x1"
-ConcertTicket = "B0DB254C80D3E747FF9CFC0D68878C27C0365EBEC49834E92E27CD398327999E"
+ConcertTicket = "e446e105cf72bcfdc7a7dcdf174b21737e2712aca5b0d74fc3ef610f16c932a0"
 CoreResources = "0xA550C18"
 
 [dependencies]
